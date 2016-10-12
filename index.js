@@ -86,9 +86,9 @@ let renderNoise = regl({
     }
 
     void main() {
-      float n = perlin_2d(gl_FragCoord.xy/scale + vec2(sin(tick * 0.01) * 10.0, cos(tick * 0.03) * 10.0));
+      float n = perlin_2d(gl_FragCoord.xy/scale + vec2(sin(tick * 0.025) * 10.0, cos(tick * 0.03) * 10.0));
       n = 0.5 * n + 0.5;
-      gl_FragColor = vec4(n,n,n, 1);
+      gl_FragColor = mix(vec4(0, 0.5, 1.0, 1), vec4(0, 1, 0.5, 1), n);
     }
   `,
   attributes: {
