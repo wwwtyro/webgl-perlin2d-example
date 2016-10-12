@@ -49,7 +49,7 @@ let renderNoise = regl({
     uniform sampler2D source, tNoise;
     uniform vec3 color;
     uniform vec2 offset;
-    uniform float scale, density, falloff, tNoiseSize;
+    uniform float scale, tick, tNoiseSize;
     varying vec2 vUV;
 
     float interpolate(float a, float b, float t) {
@@ -87,7 +87,7 @@ let renderNoise = regl({
     }
 
     void main() {
-      float n = perlin_2d(gl_FragCoord.xy/scale);
+      float n = perlin_2d(gl_FragCoord.xy/scale + vec2(sin(tick * 0.01) * 10.0, cos(tick * 0.03) * 10.0));
       n = 0.5 * n + 0.5;
       gl_FragColor = vec4(n,n,n, 1);
     }
@@ -97,15 +97,25 @@ let renderNoise = regl({
   },
   uniforms: {
     scale: regl.prop('scale'),
+    tick: regl.prop('tick'),
     tNoise: tNoise,
     tNoiseSize: tNoiseSize
   },
   count: 6
 });
 
-renderNoise({
-  scale: Math.max(window.innerWidth, window.innerHeight) / 16
-});
+let tick = 0;
+
+function render() {
+  tick++;
+  renderNoise({
+    scale: Math.max(window.innerWidth, window.innerHeight) / 16,
+    tick: tick
+  });
+  requestAnimationFrame(render);
+}
+
+requestAnimationFrame(render);
 
 },{"regl":2}],2:[function(require,module,exports){
 (function (global){
