@@ -2,21 +2,21 @@
 
 const regl = require('regl')();
 
-function randomVec2() {
-  while (true) {
-    let x = Math.random() * 2 - 1;
-    let y = Math.random() * 2 - 1;
-    let d = Math.sqrt(x*x + y*y);
-    if (d > 1) continue;
-    return {x: x/d, y: y/d};
+function randVec2() {
+  while(true) {
+    let x = 2 * Math.random() - 1;
+    let y = 2 * Math.random() - 1;
+    let l = Math.sqrt(x * x + y * y);
+    if (l > 1) continue;
+    return {x: x/l, y: y/l}
   }
 }
 
-function generateNoiseTexture(regl, rng, size) {
+function generateNoiseTexture(regl, size) {
   let l = size * size * 2;
   let array = new Uint8Array(l);
   for (let i = 0; i < l; i++) {
-    let r = randomVec2();
+    let r = randVec2();
     array[i * 2 + 0] = Math.round(0.5 * (1.0 + r.x) * 255);
     array[i * 2 + 1] = Math.round(0.5 * (1.0 + r.y) * 255);
   }
@@ -26,12 +26,14 @@ function generateNoiseTexture(regl, rng, size) {
     height: size,
     wrapS: 'repeat',
     wrapT: 'repeat',
+    mag: 'nearest',
+    min: 'nearest',
     data: array
   });
 }
 
 let tNoiseSize = 512;
-let tNoise = generateNoiseTexture(regl, null, tNoiseSize);
+let tNoise = generateNoiseTexture(regl, tNoiseSize);
 
 let renderNoise = regl({
   vert: `
@@ -49,39 +51,38 @@ let renderNoise = regl({
     uniform float scale, density, falloff, tNoiseSize;
     varying vec2 vUV;
 
-    float smootherstep(float a, float b, float r) {
-        r = clamp(r, 0.0, 1.0);
-        r = r * r * r * (r * (6.0 * r - 15.0) + 10.0);
-        return mix(a, b, r);
+    float interpolate(float a, float b, float t) {
+        t = clamp(t, 0.0, 1.0);
+        float tPrime = t * t * t * (t * (6.0 * t - 15.0) + 10.0);
+        return mix(a, b, tPrime);
     }
 
-    float perlin_2d(vec2 p) {
-        vec2 p0 = floor(p);
-        vec2 p1 = p0 + vec2(1, 0);
-        vec2 p2 = p0 + vec2(1, 1);
-        vec2 p3 = p0 + vec2(0, 1);
-        vec2 d0 = texture2D(tNoise, p0/tNoiseSize).ba;
-        vec2 d1 = texture2D(tNoise, p1/tNoiseSize).ba;
-        vec2 d2 = texture2D(tNoise, p2/tNoiseSize).ba;
-        vec2 d3 = texture2D(tNoise, p3/tNoiseSize).ba;
-        d0 = 2.0 * d0 - 1.0;
-        d1 = 2.0 * d1 - 1.0;
-        d2 = 2.0 * d2 - 1.0;
-        d3 = 2.0 * d3 - 1.0;
-        vec2 p0p = p - p0;
-        vec2 p1p = p - p1;
-        vec2 p2p = p - p2;
-        vec2 p3p = p - p3;
-        float dp0 = dot(d0, p0p);
-        float dp1 = dot(d1, p1p);
-        float dp2 = dot(d2, p2p);
-        float dp3 = dot(d3, p3p);
-        float fx = p.x - p0.x;
-        float fy = p.y - p0.y;
-        float m01 = smootherstep(dp0, dp1, fx);
-        float m32 = smootherstep(dp3, dp2, fx);
-        float m01m32 = smootherstep(m01, m32, fy);
-        return m01m32;
+    float perlin_2d(vec2 r) {
+        vec2 l0 = floor(r);
+        vec2 l1 = l0 + vec2(1, 0);
+        vec2 l2 = l0 + vec2(1, 1);
+        vec2 l3 = l0 + vec2(0, 1);
+        vec2 g0 = texture2D(tNoise, l0/tNoiseSize).ba;
+        vec2 g1 = texture2D(tNoise, l1/tNoiseSize).ba;
+        vec2 g2 = texture2D(tNoise, l2/tNoiseSize).ba;
+        vec2 g3 = texture2D(tNoise, l3/tNoiseSize).ba;
+        g0 = 2.0 * g0 - 1.0;
+        g1 = 2.0 * g1 - 1.0;
+        g2 = 2.0 * g2 - 1.0;
+        g3 = 2.0 * g3 - 1.0;
+        vec2 d0 = r - l0;
+        vec2 d1 = r - l1;
+        vec2 d2 = r - l2;
+        vec2 d3 = r - l3;
+        float p0 = dot(d0, g0);
+        float p1 = dot(d1, g1);
+        float p2 = dot(d2, g2);
+        float p3 = dot(d3, g3);
+        float tx = r.x - l0.x;
+        float ty = r.y - l0.y;
+        float v01 = interpolate(p0, p1, tx);
+        float v32 = interpolate(p3, p2, tx);
+        return interpolate(v01, v32, ty);
     }
 
     void main() {
